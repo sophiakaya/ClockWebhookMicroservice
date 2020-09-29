@@ -44,6 +44,11 @@ public class WebhookProcessor implements Consumer<Webhook>, Callable<ScheduledFu
 	}
 
 	@Override
+	public void accept(Webhook t) {
+		this.webhook = t;
+	}
+
+	@Override
 	public ScheduledFuture call() throws Exception {
 		TimerTask repeatedTask = new TimerTask() {
 
@@ -70,11 +75,6 @@ public class WebhookProcessor implements Consumer<Webhook>, Callable<ScheduledFu
 
 		return scheduleFuture;
 
-	}
-
-	@Override
-	public void accept(Webhook t) {
-		this.webhook = t;
 	}
 
 }

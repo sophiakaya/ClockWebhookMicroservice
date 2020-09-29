@@ -107,15 +107,27 @@ public class ClockServiceImpl implements ClockService {
 
 		} else {
 
-			Optional<Future> future = Optional.ofNullable(this.getWebhooks().get(webhook.getUrl()).entrySet().stream()
-					.map(Map.Entry::getValue).findFirst().get());
+			Optional<Future> oldFuture = Optional.ofNullable(this.getWebhooks().get(webhook.getUrl()).entrySet()
+					.stream().map(Map.Entry::getValue).findFirst().get());
 
-			future.get().cancel(true);
+			oldFuture.get().cancel(true);
 
 			this.getWebhooks().remove(webhook.getUrl());
 
-			webhookProcessor.accept(webhook);
-			executorService.submit(webhookProcessor);
+			try {
+				webhookProcessor.accept(webhook);
+				Future<ScheduledFuture> future = executorService.submit(webhookProcessor);
+
+				ScheduledFuture scheduleFuture = future.get();
+
+				Map<Webhook, Future> map = new HashMap<>();
+				map.put(webhook, scheduleFuture);
+				this.getWebhooks().put(webhook.getUrl(), map);
+
+			} catch (InterruptedException | ExecutionException e) {
+				// TODO Exception handling
+				e.printStackTrace();
+			}
 
 			return new ResponseEntity<>("Frequency succesfully updated", HttpStatus.OK);
 
@@ -124,10 +136,11 @@ public class ClockServiceImpl implements ClockService {
 	}
 
 	/**
-	 * See {@inheritDoc}
+	 * Get the webhooks key - value map
+	 * 
+	 * @return A {@link Map} of a {@link Webhook} and a {@link Future}
 	 */
-	@Override
-	public Map<String, Map<Webhook, Future>> getWebhooks() {
+	private Map<String, Map<Webhook, Future>> getWebhooks() {
 
 		if (webhooks == null)
 			webhooks = new HashMap<>();
