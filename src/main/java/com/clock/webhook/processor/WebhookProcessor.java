@@ -9,31 +9,33 @@ import java.net.http.HttpResponse.BodyHandlers;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.TimerTask;
+import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import javax.annotation.PostConstruct;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.clock.webhook.model.Webhook;
-import com.clock.webhook.service.ClockService;
 import com.clock.webhook.utils.ClockUtils;
 
 @Service
-public class WebhookProcessor implements Runnable {
+public class WebhookProcessor implements Consumer<Webhook>, Callable<ScheduledFuture> {
 
-	@Autowired
-	private ClockService clockService;
+	private Webhook webhook;
 
 	private ScheduledExecutorService schedulerExecutor;
 
 	private HttpClient client;
 
 	private static DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss");
+
+	public WebhookProcessor() {
+	}
 
 	@PostConstruct
 	public void init() {
@@ -42,39 +44,37 @@ public class WebhookProcessor implements Runnable {
 	}
 
 	@Override
-	public void run() {
+	public ScheduledFuture call() throws Exception {
+		TimerTask repeatedTask = new TimerTask() {
 
-		while (!clockService.getQueue().isEmpty()) {
+			@Override
+			public void run() {
 
-			Webhook webhook = clockService.getQueue().poll();
+				try {
 
-			TimerTask repeatedTask = new TimerTask() {
+					HttpRequest request = HttpRequest.newBuilder().uri(URI.create(webhook.getUrl()))
+							.POST(BodyPublishers.ofString(LocalDateTime.now().format(formatter))).build();
 
-				@Override
-				public void run() {
+					client.send(request, BodyHandlers.discarding());
 
-					try {
-
-						HttpRequest request = HttpRequest.newBuilder().uri(URI.create(webhook.getUrl()))
-								.POST(BodyPublishers.ofString(LocalDateTime.now().format(formatter))).build();
-
-						client.send(request, BodyHandlers.discarding());
-
-					} catch (IOException | InterruptedException e) {
-						// TODO Exception handling
-						e.printStackTrace();
-					}
+				} catch (IOException | InterruptedException e) {
+					// TODO Exception handling
+					e.printStackTrace();
 				}
-			};
+			}
+		};
 
-			TimeUnit currentUnit = ClockUtils.getTimeUnitBy(webhook.getUnit());
+		TimeUnit currentUnit = ClockUtils.getTimeUnitBy(webhook.getUnit());
+		ScheduledFuture scheduleFuture = schedulerExecutor.scheduleAtFixedRate(repeatedTask, 0,
+				Long.valueOf(webhook.getInterval()), currentUnit);
 
-			ScheduledFuture<?> future = schedulerExecutor.scheduleAtFixedRate(repeatedTask, 0,
-					Long.valueOf(webhook.getInterval()), currentUnit);
+		return scheduleFuture;
 
-			clockService.getWebhooks().put(webhook, future);
+	}
 
-		}
+	@Override
+	public void accept(Webhook t) {
+		this.webhook = t;
 	}
 
 }

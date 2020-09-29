@@ -1,7 +1,6 @@
 package com.clock.webhook.service;
 
 import java.util.Map;
-import java.util.Queue;
 import java.util.concurrent.Future;
 
 import org.springframework.http.ResponseEntity;
@@ -35,16 +34,9 @@ public interface ClockService {
 	ResponseEntity<?> setFrequency(Webhook webhook);
 
 	/**
-	 * Get the webhooks on the queue
-	 * 
-	 * @return A {@link Queue} of a {@link Webhook}
-	 */
-	Queue<Webhook> getQueue();
-
-	/**
 	 * 
 	 * @return A {@link Map} of a {@link Webhook} and a {@link Future}
 	 */
-	Map<Webhook, Future> getWebhooks();
+	Map<String, Map<Webhook, Future>> getWebhooks();
 
 }

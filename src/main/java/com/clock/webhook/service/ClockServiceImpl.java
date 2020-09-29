@@ -3,12 +3,11 @@ package com.clock.webhook.service;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Queue;
-import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ScheduledFuture;
 
 import javax.annotation.PostConstruct;
 
@@ -23,9 +22,7 @@ import com.clock.webhook.processor.WebhookProcessor;
 @Service
 public class ClockServiceImpl implements ClockService {
 
-	private static final BlockingQueue<Webhook> WEBHOOK_QUEUE = new LinkedBlockingQueue<>();
-
-	private Map<Webhook, Future> webhooks;
+	private Map<String, Map<Webhook, Future>> webhooks;
 
 	private ExecutorService executorService;
 
@@ -47,16 +44,26 @@ public class ClockServiceImpl implements ClockService {
 	@Override
 	public ResponseEntity<String> register(Webhook webhook) {
 
-		if (this.getWebhooks().entrySet().stream().filter(x -> x.getKey().getUrl().equals(webhook.getUrl()))
-				.map(Map.Entry::getKey).findFirst().orElse(null) != null) {
+		if (this.getWebhooks().containsKey(webhook.getUrl())) {
 
-			return new ResponseEntity<>("The given url is already registered.", HttpStatus.CONFLICT);
+			return new ResponseEntity<>("Url is already registered.", HttpStatus.CONFLICT);
 
 		} else {
 
-			WEBHOOK_QUEUE.add(webhook);
+			try {
+				webhookProcessor.accept(webhook);
+				Future<ScheduledFuture> future = executorService.submit(webhookProcessor);
 
-			executorService.submit(webhookProcessor);
+				ScheduledFuture scheduleFuture = future.get();
+
+				Map<Webhook, Future> map = new HashMap<>();
+				map.put(webhook, scheduleFuture);
+				this.getWebhooks().put(webhook.getUrl(), map);
+
+			} catch (InterruptedException | ExecutionException e) {
+				// TODO Exception handling
+				e.printStackTrace();
+			}
 
 			return new ResponseEntity<>("Url successfully registered", HttpStatus.OK);
 		}
@@ -69,20 +76,18 @@ public class ClockServiceImpl implements ClockService {
 	@Override
 	public ResponseEntity<String> unregister(String url) {
 
-		if (this.getWebhooks().entrySet().stream().filter(x -> x.getKey().getUrl().equals(url)).map(Map.Entry::getKey)
-				.findFirst().orElse(null) == null) {
+		if (!this.getWebhooks().containsKey(url)) {
 
 			return new ResponseEntity<>("Url not found", HttpStatus.NOT_FOUND);
 
 		} else {
 
-			Optional<Future> myFuture = Optional.ofNullable(this.getWebhooks().entrySet().stream()
-					.filter(x -> x.getKey().getUrl().equals(url)).map(Map.Entry::getValue).findFirst().get());
+			Optional<Future> future = Optional.ofNullable(
+					this.getWebhooks().get(url).entrySet().stream().map(Map.Entry::getValue).findFirst().get());
 
-			myFuture.get().cancel(true);
+			future.get().cancel(true);
 
-			this.getWebhooks().remove(this.getWebhooks().entrySet().stream()
-					.filter(x -> x.getKey().getUrl().equals(url)).map(Map.Entry::getKey).findFirst().get());
+			this.getWebhooks().remove(url);
 
 			return new ResponseEntity<>("Url successfully unregistered", HttpStatus.OK);
 
@@ -96,25 +101,20 @@ public class ClockServiceImpl implements ClockService {
 	@Override
 	public ResponseEntity<String> setFrequency(Webhook webhook) {
 
-		if (this.getWebhooks().entrySet().stream().filter(x -> x.getKey().getUrl().equals(webhook.getUrl()))
-				.map(Map.Entry::getKey).findFirst().orElse(null) == null) {
+		if (!this.getWebhooks().containsKey(webhook.getUrl())) {
 
 			return new ResponseEntity<>("Url not found", HttpStatus.NOT_FOUND);
 
 		} else {
 
-			Optional<Future> myFuture = Optional.ofNullable(
-					this.getWebhooks().entrySet().stream().filter(x -> x.getKey().getUrl().equals(webhook.getUrl()))
-							.map(Map.Entry::getValue).findFirst().get());
+			Optional<Future> future = Optional.ofNullable(this.getWebhooks().get(webhook.getUrl()).entrySet().stream()
+					.map(Map.Entry::getValue).findFirst().get());
 
-			myFuture.get().cancel(true);
+			future.get().cancel(true);
 
-			this.getWebhooks()
-					.remove(this.getWebhooks().entrySet().stream()
-							.filter(x -> x.getKey().getUrl().equals(webhook.getUrl())).map(Map.Entry::getKey)
-							.findFirst().get());
+			this.getWebhooks().remove(webhook.getUrl());
 
-			WEBHOOK_QUEUE.add(webhook);
+			webhookProcessor.accept(webhook);
 			executorService.submit(webhookProcessor);
 
 			return new ResponseEntity<>("Frequency succesfully updated", HttpStatus.OK);
@@ -127,20 +127,12 @@ public class ClockServiceImpl implements ClockService {
 	 * See {@inheritDoc}
 	 */
 	@Override
-	public Map<Webhook, Future> getWebhooks() {
+	public Map<String, Map<Webhook, Future>> getWebhooks() {
 
 		if (webhooks == null)
 			webhooks = new HashMap<>();
 
 		return webhooks;
-	}
-
-	/**
-	 * See {@inheritDoc}
-	 */
-	@Override
-	public Queue<Webhook> getQueue() {
-		return WEBHOOK_QUEUE;
 	}
 
 }
