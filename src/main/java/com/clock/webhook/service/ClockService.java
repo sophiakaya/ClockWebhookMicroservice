@@ -1,5 +1,7 @@
 package com.clock.webhook.service;
 
+import java.util.concurrent.ScheduledFuture;
+
 import org.springframework.http.ResponseEntity;
 
 import com.clock.webhook.model.Webhook;
@@ -29,5 +31,13 @@ public interface ClockService {
 	 * @return A {@link ResponseEntity}
 	 */
 	ResponseEntity<?> setFrequency(Webhook webhook);
+
+	/**
+	 * Add a the future task to the webhooks map to cancel it later
+	 * 
+	 * @param A {@link Webhook}
+	 * @param A {@link ScheduledFuture}
+	 */
+	void addScheduledFuture(Webhook webhook, ScheduledFuture scheduleFuture);
 
 }
