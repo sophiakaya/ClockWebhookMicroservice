@@ -35,8 +35,6 @@ public class WebhookProcessor implements Consumer<Webhook>, Runnable {
 	@Autowired
 	private ClockService clockService;
 
-	// private Webhook webhook;
-
 	private ScheduledExecutorService schedulerExecutor;
 
 	private HttpClient client;
@@ -54,7 +52,6 @@ public class WebhookProcessor implements Consumer<Webhook>, Runnable {
 
 	@Override
 	public void accept(Webhook t) {
-		// this.webhook = t;
 		WEBHOOK_QUEUE.add(t);
 	}
 

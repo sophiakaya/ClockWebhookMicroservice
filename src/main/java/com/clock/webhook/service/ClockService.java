@@ -22,7 +22,7 @@ public interface ClockService {
 	 * @param A {@link String} url
 	 * @return A {@link ResponseEntity}
 	 */
-	ResponseEntity<?> unregister(String url);
+	ResponseEntity<String> unregister(String url);
 
 	/**
 	 * Set the frequency of a Clock webbook
@@ -30,7 +30,7 @@ public interface ClockService {
 	 * @param A {@link Webhook}
 	 * @return A {@link ResponseEntity}
 	 */
-	ResponseEntity<?> setFrequency(Webhook webhook);
+	ResponseEntity<String> setFrequency(Webhook webhook);
 
 	/**
 	 * Add a the future task to the webhooks map to cancel it later

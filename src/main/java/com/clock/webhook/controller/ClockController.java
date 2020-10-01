@@ -30,14 +30,14 @@ public class ClockController {
 	}
 
 	@PostMapping(path = "/unregister")
-	public ResponseEntity<?> unregister(@RequestParam(value = "callbackUrl") String url) {
+	public ResponseEntity<String> unregister(@RequestParam(value = "callbackUrl") String url) {
 
 		return clockService.unregister(url);
 
 	}
 
 	@PutMapping(path = "/frequency", consumes = { MediaType.APPLICATION_JSON_VALUE })
-	public ResponseEntity<?> changeFrequency(@Valid @RequestBody Webhook webhook) {
+	public ResponseEntity<String> changeFrequency(@Valid @RequestBody Webhook webhook) {
 
 		return clockService.setFrequency(webhook);
 
