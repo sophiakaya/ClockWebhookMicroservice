@@ -30,7 +30,7 @@ import com.clock.webhook.utils.ClockUtils;
 @Service
 public class WebhookProcessor implements Consumer<Webhook>, Runnable {
 
-	private static final BlockingQueue<Webhook> WEBHOOK_QUEUE = new LinkedBlockingQueue<>();
+	private static BlockingQueue<Webhook> WEBHOOK_QUEUE = new LinkedBlockingQueue<>();
 
 	@Autowired
 	private ClockService clockService;
@@ -39,10 +39,7 @@ public class WebhookProcessor implements Consumer<Webhook>, Runnable {
 
 	private HttpClient client;
 
-	private static DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss");
-
-	public WebhookProcessor() {
-	}
+	private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss");
 
 	@PostConstruct
 	public void init() {
